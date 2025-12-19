@@ -12,46 +12,38 @@ from aqt.editor import Editor
 def wrap_text(editor: Editor, tag: str):
     """
     Wraps selected text in an HTML tag, preserving existing formatting.
-    Uses Range API to properly wrap content without destroying existing tags.
+    Gets selected HTML via callback, wraps it, and inserts back.
     """
-    # JavaScript function that properly wraps selection without destroying existing tags
-    js_code = f"""
-    (function() {{
-        const field = document.activeElement;
-        if (!field) return;
+    # JavaScript to get the selected HTML content
+    js_get_selection = """
+    (function() {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return '';
 
-        const selection = field.ownerDocument.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
+        const range = sel.getRangeAt(0);
+        if (range.collapsed) return '';
 
-        const range = selection.getRangeAt(0);
-        if (range.collapsed) return; // Nothing selected
-
-        // Create the wrapper element
-        const wrapper = document.createElement('{tag}');
-
-        // Extract the selected content
-        const fragment = range.extractContents();
-
-        // Put the content inside the wrapper
-        wrapper.appendChild(fragment);
-
-        // Insert the wrapper at the selection point
-        range.insertNode(wrapper);
-
-        // Update the selection to include the wrapped content
-        range.selectNode(wrapper);
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        // Move cursor to the end
-        selection.collapseToEnd();
-
-        // Trigger input event so Anki knows content changed
-        field.dispatchEvent(new Event('input', {{ bubbles: true }}));
-    }})();
+        // Create a temporary container to get HTML of selection
+        const container = document.createElement('div');
+        container.appendChild(range.cloneContents());
+        return container.innerHTML;
+    })();
     """
 
-    editor.web.eval(js_code)
+    def on_selection_received(html: str):
+        if not html:
+            return
+
+        # Wrap the HTML in the specified tag
+        wrapped_html = f"<{tag}>{html}</{tag}>"
+
+        # Insert the wrapped HTML using Anki's pasteHTML function
+        # This preserves formatting better than execCommand
+        import json
+        editor.web.eval(f"pasteHTML({json.dumps(wrapped_html)}, true, false);")
+
+    # Get selection HTML and process it
+    editor.web.evalWithCallback(js_get_selection, on_selection_received)
 
 
 def add_small_button(buttons, editor):
