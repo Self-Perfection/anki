@@ -63,10 +63,10 @@ def open_infopedia_pt(editor: Editor):
     Opens Infopedia PT-EN dictionary for the word in current field.
     """
     # Get word from current field
-    word = get_field_value(editor)
+    word = get_field_value(editor, field_name='Word')
 
     if not word:
-        showWarning("No word found in current field. Please select a field with text.")
+        showWarning("Could not get content of Word field")
         return
 
     # URL encode the word
